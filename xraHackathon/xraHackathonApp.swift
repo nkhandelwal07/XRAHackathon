@@ -11,7 +11,7 @@ import SwiftUI
 struct xraHackathonApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            FreeFormDrawingView()
         }
         .windowStyle(.volumetric)
     }
