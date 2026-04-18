@@ -118,7 +118,7 @@ struct FreeFormDrawingView: View {
                             LinearGradient(gradient: Gradient(colors: [.white, .yellow]), startPoint: .leading, endPoint: .top)
                         )
                         VStack {
-                            Slider(value: $bgHue, in: 0...1)
+                            Slider(value: $bgHue, in: 0...1.2)
                                 .frame(width: 120)
                             Text("Background")
                                 .font(.caption2)
@@ -383,9 +383,11 @@ struct DrawingView: UIViewRepresentable {
         canvas.tool = isDrawing ? ink : eraser
         canvas.isRulerActive = true
         canvas.backgroundColor = UIColor(
-            Color(hue: bgHue, saturation: 0.3, brightness: 1.0)
-                .opacity(0.3)
+            bgHue > 1.0
+                ? Color.white
+                : Color(hue: bgHue, saturation: 0.3, brightness: 1.0).opacity(0.3)
         )
+        canvas.overrideUserInterfaceStyle = .light
         
         // From Brian Advent: Show the default toolpicker
         canvas.alwaysBounceVertical = true
@@ -404,8 +406,9 @@ struct DrawingView: UIViewRepresentable {
         // Update tool whenever the main view updates
         uiView.tool = isDrawing ? ink : eraser
         canvas.backgroundColor = UIColor(
-            Color(hue: bgHue, saturation: 0.3, brightness: 1.0)
-                .opacity(0.3)
+            bgHue > 1.0
+                ? Color.white
+                : Color(hue: bgHue, saturation: 0.3, brightness: 1.0).opacity(0.3)
         )
     }
 }
