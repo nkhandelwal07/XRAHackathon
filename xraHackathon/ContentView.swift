@@ -3,6 +3,7 @@
 //  PKDraw
 import SwiftUI
 import PencilKit
+
 struct FreeFormDrawingView: View {
     
     @State private var canvas = PKCanvasView()
@@ -19,6 +20,10 @@ struct FreeFormDrawingView: View {
     @State private var isRecording = false
     @Environment(\.dismiss) private var dismiss
     
+    @State private var showNewGamePopup = false
+    @State private var gameTopic = ""
+    @State private var questionCount = 5
+    
     var body: some View {
         NavigationStack {
             DrawingView(
@@ -28,10 +33,50 @@ struct FreeFormDrawingView: View {
                 color: $color,
                 bgHue: $bgHue
             )
+                .sheet(isPresented: $showNewGamePopup) {
+                    VStack(spacing: 20) {
+                        Text("Start New Game")
+                            .font(.title2)
+                            .bold()
+
+                        TextField("Enter a topic", text: $gameTopic)
+                            .textFieldStyle(.roundedBorder)
+                            .padding(.horizontal)
+
+                        Stepper("Number of Questions: \(questionCount)", value: $questionCount, in: 1...20)
+                            .padding(.horizontal)
+
+                        HStack(spacing: 16) {
+                            Button("Cancel") {
+                                showNewGamePopup = false
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button("Start") {
+                                startNewGame()
+                                showNewGamePopup = false
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(gameTopic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                    .padding()
+                    .frame(width: 400)
+                }
                 .navigationBarTitleDisplayMode(.inline)
                 // Top ornament: Start
                 .ornament(attachmentAnchor: .scene(.top)) {
                     HStack(spacing: 64) {
+                        Button {
+                            showNewGamePopup = true
+                        } label: {
+                            VStack(spacing: 8) {
+                                Image(systemName: "play.fill")
+                                Text("Start New Game")
+                                    .font(.caption2)
+                            }
+                        }
+                        
                         Button {
                             //
                         } label: {
@@ -345,6 +390,14 @@ struct FreeFormDrawingView: View {
         
         // Save drawings to the Photos Album
         UIImageWriteToSavedPhotosAlbum(drawingImage, nil, nil, nil)
+    }
+    
+    func startNewGame() {
+        canvas.drawing = PKDrawing()
+        
+        print("Starting new game")
+        print("Topic: \(gameTopic)")
+        print("Questions: \(questionCount)")
     }
 }
 struct DrawingView: UIViewRepresentable {
