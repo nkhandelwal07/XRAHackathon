@@ -4,6 +4,8 @@
 import SwiftUI
 import PencilKit
 
+
+
 struct FreeFormDrawingView: View {
     
     @State private var canvas = PKCanvasView()
@@ -25,6 +27,10 @@ struct FreeFormDrawingView: View {
     @State private var gameTopic = ""
     @State private var questionCount = 5
     
+    @State private var generatedWords: [String] = []
+    @State private var isGeneratingWords = false
+    @State private var generationError: String?
+    
     var body: some View {
         NavigationStack {
             DrawingView(
@@ -34,6 +40,34 @@ struct FreeFormDrawingView: View {
                 color: $color,
                 bgHue: $bgHue
             )
+                .overlay(alignment: .topLeading) {
+                    if isGeneratingWords {
+                        ProgressView("Generating words...")
+                            .padding()
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding()
+                    } else if !generatedWords.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Words for \(gameTopic)")
+                                .font(.headline)
+
+                            ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
+                                Text("\(index + 1). \(word)")
+                            }
+
+                            if let generationError {
+                                Text(generationError)
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                            }
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .padding()
+                    }
+                }
                 .sheet(isPresented: $showNewGamePopup) {
                     VStack(spacing: 20) {
                         Text("Start New Game")
@@ -54,11 +88,13 @@ struct FreeFormDrawingView: View {
                             .buttonStyle(.bordered)
 
                             Button("Start") {
-                                startNewGame()
-                                showNewGamePopup = false
+                                Task {
+                                    await startNewGame()
+                                    showNewGamePopup = false
+                                }
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(gameTopic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(gameTopic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingWords)
                         }
                     }
                     .padding()
@@ -394,6 +430,81 @@ struct FreeFormDrawingView: View {
         }
     }
     
+    struct ChatRequest: Encodable {
+        let model: String
+        let messages: [ChatMessage]
+        let temperature: Double
+    }
+
+    struct ChatMessage: Encodable {
+        let role: String
+        let content: String
+    }
+
+    struct ChatResponse: Decodable {
+        let choices: [Choice]
+
+        struct Choice: Decodable {
+            let message: Message
+        }
+
+        struct Message: Decodable {
+            let content: String
+        }
+    }
+
+    func generateWordsFromTopic(topic: String, count: Int) async throws -> [String] {
+        let apiKey = ""
+
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            throw URLError(.badURL)
+        }
+
+        let prompt = """
+        Generate exactly \(count) simple, concrete, drawable vocabulary words that help someone learn the topic "\(topic)".
+        Return only a comma-separated list.
+        Keep each item short, ideally 1 to 3 words.
+        """
+
+        let requestBody = ChatRequest(
+            model: "gpt-4o-mini",
+            messages: [
+                ChatMessage(role: "system", content: "You generate educational drawing prompts."),
+                ChatMessage(role: "user", content: prompt)
+            ],
+            temperature: 0.7
+        )
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        guard 200..<300 ~= httpResponse.statusCode else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown server error"
+            throw NSError(domain: "OpenAIError", code: httpResponse.statusCode, userInfo: [
+                NSLocalizedDescriptionKey: errorText
+            ])
+        }
+
+        let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+        let rawText = decoded.choices.first?.message.content ?? ""
+
+        let words = rawText
+            .components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        return Array(words.prefix(count))
+    }
+    
     func saveDrawing() {
         // Get the drawing image from the canvas
         let drawingImage = canvas.drawing.image(from: canvas.drawing.bounds, scale: 1.0)
@@ -402,12 +513,22 @@ struct FreeFormDrawingView: View {
         UIImageWriteToSavedPhotosAlbum(drawingImage, nil, nil, nil)
     }
     
-    func startNewGame() {
+    func startNewGame() async {
         canvas.drawing = PKDrawing()
-        
-        print("Starting new game")
-        print("Topic: \(gameTopic)")
-        print("Questions: \(questionCount)")
+        generatedWords = []
+        generationError = nil
+        isGeneratingWords = true
+
+        do {
+            let words = try await generateWordsFromTopic(topic: gameTopic, count: questionCount)
+            generatedWords = words
+            print("Generated words: \(words)")
+        } catch {
+            generationError = error.localizedDescription
+            print("Failed to generate words: \(error)")
+        }
+
+        isGeneratingWords = false
     }
 }
 struct DrawingView: UIViewRepresentable {
