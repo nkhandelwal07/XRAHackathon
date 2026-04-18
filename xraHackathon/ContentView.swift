@@ -1,4 +1,4 @@
-//
+//test comment
 //  ContentView.swift
 //  PKDraw
 import SwiftUI
@@ -12,6 +12,7 @@ struct FreeFormDrawingView: View {
     @State private var bgHue: Double = 0.0
     @State private var pencilType: PKInkingTool.InkType = .pencil
     @State private var colorPicker = false
+    @State private var lineThickness: CGFloat = 5.0
     @Environment(\.undoManager) private var undoManager
     
     @State private var isMessaging = false
@@ -162,7 +163,7 @@ struct FreeFormDrawingView: View {
                             LinearGradient(gradient: Gradient(colors: [.white, .yellow]), startPoint: .leading, endPoint: .top)
                         )
                         VStack {
-                            Slider(value: $bgHue, in: 0...1)
+                            Slider(value: $bgHue, in: 0...1.2)
                                 .frame(width: 120)
                             Text("Background")
                                 .font(.caption2)
@@ -271,6 +272,15 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
+                            VStack(spacing: 8) {
+                                Image(systemName: "lineweight")
+                                Slider(value: $lineThickness, in: 1...20, step: 1)
+                                    .frame(width: 100)
+                                Text("\(Int(lineThickness))pt")
+                                    .foregroundStyle(.white)
+                                    .font(.caption2)
+                            }
+                            
                         } // Drawing Tools
                         .padding(.horizontal)
                         .foregroundStyle(
@@ -426,9 +436,11 @@ struct DrawingView: UIViewRepresentable {
         canvas.tool = isDrawing ? ink : eraser
         canvas.isRulerActive = true
         canvas.backgroundColor = UIColor(
-            Color(hue: bgHue, saturation: 0.3, brightness: 1.0)
-                .opacity(0.3)
+            bgHue > 1.0
+                ? Color.white
+                : Color(hue: bgHue, saturation: 0.3, brightness: 1.0).opacity(0.3)
         )
+        canvas.overrideUserInterfaceStyle = .light
         
         // From Brian Advent: Show the default toolpicker
         canvas.alwaysBounceVertical = true
@@ -447,8 +459,9 @@ struct DrawingView: UIViewRepresentable {
         // Update tool whenever the main view updates
         uiView.tool = isDrawing ? ink : eraser
         canvas.backgroundColor = UIColor(
-            Color(hue: bgHue, saturation: 0.3, brightness: 1.0)
-                .opacity(0.3)
+            bgHue > 1.0
+                ? Color.white
+                : Color(hue: bgHue, saturation: 0.3, brightness: 1.0).opacity(0.3)
         )
     }
 }
