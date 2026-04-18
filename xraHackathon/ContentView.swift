@@ -12,6 +12,7 @@ struct FreeFormDrawingView: View {
     @State private var color: Color = .black
     @State private var pencilType: PKInkingTool.InkType = .pencil
     @State private var colorPicker = false
+    @State private var lineThickness: CGFloat = 5.0
     @Environment(\.undoManager) private var undoManager
     
     @State private var isMessaging = false
@@ -217,6 +218,15 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
+                            VStack(spacing: 8) {
+                                Image(systemName: "lineweight")
+                                Slider(value: $lineThickness, in: 1...20, step: 1)
+                                    .frame(width: 100)
+                                Text("\(Int(lineThickness))pt")
+                                    .foregroundStyle(.white)
+                                    .font(.caption2)
+                            }
+                            
                         } // Drawing Tools
                         .padding(.horizontal)
                         .foregroundStyle(
