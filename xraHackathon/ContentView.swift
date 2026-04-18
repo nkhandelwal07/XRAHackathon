@@ -23,6 +23,8 @@ struct FreeFormDrawingView: View {
     var body: some View {
         NavigationStack {
             DrawingView(canvas: $canvas, isDrawing: $isDrawing, pencilType: $pencilType, color: $color)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 20) // controls side spacing
                 .navigationBarTitleDisplayMode(.inline)
                 // Top ornament: Start
                 .ornament(attachmentAnchor: .scene(.top)) {
@@ -354,12 +356,16 @@ struct DrawingView: UIViewRepresentable {
         
         canvas.tool = isDrawing ? ink : eraser
         canvas.isRulerActive = true
-        canvas.backgroundColor = .init(red: 1, green: 1, blue: 0, alpha: 0.1)
+        canvas.backgroundColor = UIColor(red: 0.92, green: 0.80, blue: 1.0, alpha: 0.3)
 
         
         // From Brian Advent: Show the default toolpicker
         canvas.alwaysBounceVertical = true
         canvas.isScrollEnabled = true
+        
+//        canvas.contentSize = CGSize(width: 3000, height: 3000)
+//        canvas.minimumZoomScale = 1.0
+//        canvas.maximumZoomScale = 1.0
         
         let toolPicker = PKToolPicker.init()
         toolPicker.setVisible(true, forFirstResponder: canvas)
