@@ -39,11 +39,9 @@ struct FreeFormDrawingView: View {
     
     @State private var completedDrawings: [DrawingResult] = []
     let gameTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
-
     // --- ADDED: animated gradient state ---
     @State private var gradientPhase: Double = 0
     let bgAnimTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
-
     var dynamicBGColors: [Color] {
         if bgHue > 1.0 {
             return [.white, Color(hue: 0.0, saturation: 0.0, brightness: 0.97)]
@@ -92,14 +90,16 @@ struct FreeFormDrawingView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Words for \(gameTopic)")
                                 .font(.headline)
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
                                 HStack(spacing: 8) {
                                     Text("\(index + 1). \(word)")
                                         .fontWeight(index == currentWordIndex && !showCongratsPanel ? .bold : .regular)
+                                        .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                                     if index < completedTimes.count {
                                         Text("• \(formatTime(completedTimes[index]))")
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                                     }
                                 }
                             }
@@ -120,19 +120,22 @@ struct FreeFormDrawingView: View {
                         VStack(spacing: 12) {
                             Text("Draw:")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             Text(generatedWords[currentWordIndex])
                                 .font(.largeTitle)
                                 .bold()
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             Text("Word Time: \(formatTime(currentWordElapsed))")
                                 .font(.headline)
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             Text("Total Time: \(formatTime(overallElapsed))")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             Button("Done") {
                                 finishCurrentWord()
                             }
                             .buttonStyle(.borderedProminent)
+                            .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                         }
                         .padding()
                         .background(.ultraThinMaterial)
@@ -146,12 +149,15 @@ struct FreeFormDrawingView: View {
                             Text("Congratulations!")
                                 .font(.largeTitle)
                                 .bold()
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             Text("You finished all the words for \(gameTopic)")
                                 .font(.headline)
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
                                     if index < completedTimes.count {
                                         Text("\(index + 1). \(word): \(formatTime(completedTimes[index]))")
+                                            .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                                     }
                                 }
                             }
@@ -160,9 +166,11 @@ struct FreeFormDrawingView: View {
                             Text("Overall Time: \(formatTime(overallElapsed))")
                                 .font(.title3)
                                 .bold()
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             Divider()
                             Text("Your Drawings")
                                 .font(.headline)
+                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                             ScrollView(.horizontal) {
                                 HStack(spacing: 16) {
                                     ForEach(completedDrawings) { item in
@@ -171,14 +179,16 @@ struct FreeFormDrawingView: View {
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: 140, height: 140)
+                                                .colorMultiply(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                             Text(item.word)
                                                 .font(.caption)
                                                 .bold()
                                                 .lineLimit(1)
+                                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                                             Text(formatTime(item.time))
                                                 .font(.caption2)
-                                                .foregroundStyle(.secondary)
+                                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
                                         }
                                         .frame(width: 150)
                                     }
@@ -623,14 +633,12 @@ struct FreeFormDrawingView: View {
         isGeneratingWords = false
     }
 }
-
 struct DrawingView: UIViewRepresentable {
     @Binding var canvas: PKCanvasView
     @Binding var isDrawing: Bool
     @Binding var pencilType: PKInkingTool.InkType
     @Binding var color: Color
     @Binding var bgHue: Double
-
     var ink: PKInkingTool {
         PKInkingTool(pencilType, color: UIColor(color))
     }
@@ -658,7 +666,8 @@ struct DrawingView: UIViewRepresentable {
         uiView.backgroundColor = .clear
     }
 }
-
 #Preview {
     FreeFormDrawingView()
 }
+
+
