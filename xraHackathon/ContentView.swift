@@ -24,6 +24,8 @@ struct FreeFormDrawingView: View {
     @State private var isRecording = false
     @Environment(\.dismiss) private var dismiss
     
+    @State private var splitCount: Int = 1
+    
     @State private var showNewGamePopup = false
     @State private var gameTopic = ""
     @State private var questionCount = 5
@@ -46,13 +48,51 @@ struct FreeFormDrawingView: View {
     
     var body: some View {
         NavigationStack {
-            DrawingView(
-                canvas: $canvas,
-                isDrawing: $isDrawing,
-                pencilType: $pencilType,
-                color: $color,
-                bgHue: $bgHue
-            )
+//            DrawingView(
+//                canvas: $canvas,
+//                isDrawing: $isDrawing,
+//                pencilType: $pencilType,
+//                color: $color,
+//                bgHue: $bgHue
+//            )
+//            let columns = splitCount == 1 ? 1 : 2
+//
+//            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: columns), spacing: 4) {
+//                ForEach(0..<splitCount, id: \.self) { _ in
+//                    DrawingView(
+//                        canvas: .constant(PKCanvasView()),
+//                        isDrawing: $isDrawing,
+//                        pencilType: $pencilType,
+//                        color: $color,
+//                        bgHue: .constant(0.0)
+//                    )
+//                    .frame(maxWidth: .infinity, minHeight: 300)
+//                    .cornerRadius(12)
+//                }
+//            }
+            GeometryReader { geo in
+                let columns = splitCount == 1 ? 1 : 2
+                let itemHeight = splitCount <= 2 ? geo.size.height : geo.size.height / 2
+
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: columns), spacing: 4) {
+                    ForEach(0..<splitCount, id: \.self) { _ in
+                        DrawingView(
+                            canvas: .constant(PKCanvasView()),
+                            isDrawing: $isDrawing,
+                            pencilType: $pencilType,
+                            color: $color,
+                            bgHue: .constant(0.0)
+                        )
+                        .frame(width: geo.size.width / CGFloat(columns) - 4, height: itemHeight)
+                        .cornerRadius(12)
+                    }
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if isGeneratingWords {
                         ProgressView("Generating words...")
@@ -252,6 +292,15 @@ struct FreeFormDrawingView: View {
                                     Text(isRecording ? "Stop" : "Record")
                                         .font(.caption2)
                                 }
+                            }
+                        }
+                        Button {
+                            splitCount *= 2
+                        } label: {
+                            VStack(spacing: 8) {
+                                Image(systemName: "plus.rectangle.on.rectangle")
+                                Text("Split")
+                                    .font(.caption2)
                             }
                         }
                     }.padding(.horizontal)
