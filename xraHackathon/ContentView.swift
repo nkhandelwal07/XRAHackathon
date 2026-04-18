@@ -1,15 +1,14 @@
 //
 //  ContentView.swift
 //  PKDraw
-
 import SwiftUI
 import PencilKit
-
 struct FreeFormDrawingView: View {
     
     @State private var canvas = PKCanvasView()
     @State private var isDrawing = true
     @State private var color: Color = .black
+    @State private var bgHue: Double = 0.0
     @State private var pencilType: PKInkingTool.InkType = .pencil
     @State private var colorPicker = false
     @State private var lineThickness: CGFloat = 5.0
@@ -23,9 +22,13 @@ struct FreeFormDrawingView: View {
     
     var body: some View {
         NavigationStack {
-            DrawingView(canvas: $canvas, isDrawing: $isDrawing, pencilType: $pencilType, color: $color)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 20) // controls side spacing
+            DrawingView(
+                canvas: $canvas,
+                isDrawing: $isDrawing,
+                pencilType: $pencilType,
+                color: $color,
+                bgHue: $bgHue
+            )
                 .navigationBarTitleDisplayMode(.inline)
                 // Top ornament: Start
                 .ornament(attachmentAnchor: .scene(.top)) {
@@ -114,6 +117,12 @@ struct FreeFormDrawingView: View {
                         .foregroundStyle(
                             LinearGradient(gradient: Gradient(colors: [.white, .yellow]), startPoint: .leading, endPoint: .top)
                         )
+                        VStack {
+                            Slider(value: $bgHue, in: 0...1)
+                                .frame(width: 120)
+                            Text("Background")
+                                .font(.caption2)
+                        }
                     } // Modify tools
                     .padding(12)
                     .buttonStyle(.plain)
@@ -246,7 +255,7 @@ struct FreeFormDrawingView: View {
                         Button {
                             // Tool picker
                             //let toolPicker = PKToolPicker.init()
-                            @State var toolPicker = PKToolPicker()
+                            let toolPicker = PKToolPicker()
                             toolPicker.setVisible(true, forFirstResponder: canvas)
                             toolPicker.addObserver(canvas)
                             canvas.becomeFirstResponder()
@@ -348,7 +357,6 @@ struct FreeFormDrawingView: View {
         UIImageWriteToSavedPhotosAlbum(drawingImage, nil, nil, nil)
     }
 }
-
 struct DrawingView: UIViewRepresentable {
     // Capture drawings for saving in the photos library
     @Binding var canvas: PKCanvasView
@@ -357,6 +365,7 @@ struct DrawingView: UIViewRepresentable {
     @Binding var pencilType: PKInkingTool.InkType
     // Ability to change a pencil color
     @Binding var color: Color
+    @Binding var bgHue: Double   // <-- ADD (line ~215)
     
     
     //let ink = PKInkingTool(.pencil, color: .black)
@@ -373,16 +382,14 @@ struct DrawingView: UIViewRepresentable {
         
         canvas.tool = isDrawing ? ink : eraser
         canvas.isRulerActive = true
-        canvas.backgroundColor = UIColor(red: 0.92, green: 0.80, blue: 1.0, alpha: 0.3)
-
+        canvas.backgroundColor = UIColor(
+            Color(hue: bgHue, saturation: 0.3, brightness: 1.0)
+                .opacity(0.3)
+        )
         
         // From Brian Advent: Show the default toolpicker
         canvas.alwaysBounceVertical = true
         canvas.isScrollEnabled = true
-        
-//        canvas.contentSize = CGSize(width: 3000, height: 3000)
-//        canvas.minimumZoomScale = 1.0
-//        canvas.maximumZoomScale = 1.0
         
         let toolPicker = PKToolPicker.init()
         toolPicker.setVisible(true, forFirstResponder: canvas)
@@ -393,12 +400,17 @@ struct DrawingView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
+        
         // Update tool whenever the main view updates
         uiView.tool = isDrawing ? ink : eraser
+        canvas.backgroundColor = UIColor(
+            Color(hue: bgHue, saturation: 0.3, brightness: 1.0)
+                .opacity(0.3)
+        )
     }
 }
-
-
 #Preview {
     FreeFormDrawingView()
 }
+
+
