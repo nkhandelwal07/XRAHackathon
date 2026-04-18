@@ -322,8 +322,15 @@ struct FreeFormDrawingView: View {
                             Image(systemName: "hand.draw")
                         }
                         .sheet(isPresented: $colorPicker) {
-                            ColorPicker("Pick color", selection: $color)
-                                .padding()
+                            VStack(spacing: 20) {
+                                ColorPicker("Pick color", selection: $color)
+                                    .padding()
+                                Button("Done") {
+                                    colorPicker = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .padding()
                         }
                     }.padding(12)
                         .buttonStyle(.plain)
