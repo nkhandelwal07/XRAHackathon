@@ -3,6 +3,7 @@
 //  PKDraw
 import SwiftUI
 import PencilKit
+internal import Combine
 
 
 
@@ -31,6 +32,18 @@ struct FreeFormDrawingView: View {
     @State private var isGeneratingWords = false
     @State private var generationError: String?
     
+    @State private var currentWordIndex = 0
+    @State private var wordStartTime: Date?
+    @State private var currentWordElapsed: TimeInterval = 0
+    @State private var overallStartTime: Date?
+    @State private var overallElapsed: TimeInterval = 0
+    @State private var completedTimes: [TimeInterval] = []
+    @State private var showCongratsPanel = false
+    
+    @State private var completedDrawings: [UIImage] = []
+
+    let gameTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
+    
     var body: some View {
         NavigationStack {
             DrawingView(
@@ -53,7 +66,16 @@ struct FreeFormDrawingView: View {
                                 .font(.headline)
 
                             ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
-                                Text("\(index + 1). \(word)")
+                                HStack(spacing: 8) {
+                                    Text("\(index + 1). \(word)")
+                                        .fontWeight(index == currentWordIndex && !showCongratsPanel ? .bold : .regular)
+
+                                    if index < completedTimes.count {
+                                        Text("• \(formatTime(completedTimes[index]))")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
 
                             if let generationError {
@@ -66,6 +88,79 @@ struct FreeFormDrawingView: View {
                         .background(.ultraThinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .padding()
+                    }
+                }
+                .overlay(alignment: .top) {
+                    if !generatedWords.isEmpty && !showCongratsPanel && currentWordIndex < generatedWords.count {
+                        VStack(spacing: 12) {
+                            Text("Draw:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Text(generatedWords[currentWordIndex])
+                                .font(.largeTitle)
+                                .bold()
+
+                            Text("Word Time: \(formatTime(currentWordElapsed))")
+                                .font(.headline)
+
+                            Text("Total Time: \(formatTime(overallElapsed))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
+                            Button("Done") {
+                                finishCurrentWord()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .padding(.top, 40)
+                    }
+                }
+                .overlay {
+                    if showCongratsPanel {
+                        VStack(spacing: 16) {
+                            Text("Congratulations!")
+                                .font(.largeTitle)
+                                .bold()
+
+                            Text("You finished all the words for \(gameTopic)")
+                                .font(.headline)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
+                                    if index < completedTimes.count {
+                                        Text("\(index + 1). \(word): \(formatTime(completedTimes[index]))")
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: 300, alignment: .leading)
+
+                            Divider()
+
+                            Text("Overall Time: \(formatTime(overallElapsed))")
+                                .font(.title3)
+                                .bold()
+
+                            Button("Close") {
+                                resetGame()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding(24)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                    }
+                }
+                .onReceive(gameTimer) { _ in
+                    if let start = wordStartTime, !showCongratsPanel {
+                        currentWordElapsed = Date().timeIntervalSince(start)
+                    }
+
+                    if let overallStart = overallStartTime, !showCongratsPanel {
+                        overallElapsed = Date().timeIntervalSince(overallStart)
                     }
                 }
                 .sheet(isPresented: $showNewGamePopup) {
@@ -427,7 +522,26 @@ struct FreeFormDrawingView: View {
                         .buttonStyle(.plain)
                         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 32))
                 } // Trailing Ornament: End
+            
         }
+        
+    }
+    
+    func resetGame() {
+        canvas.drawing = PKDrawing()
+
+        generatedWords = []
+        currentWordIndex = 0
+        completedTimes = []
+
+        wordStartTime = nil
+        overallStartTime = nil
+
+        currentWordElapsed = 0
+        overallElapsed = 0
+
+        showCongratsPanel = false
+        generationError = nil
     }
     
     struct ChatRequest: Encodable {
@@ -513,15 +627,61 @@ struct FreeFormDrawingView: View {
         UIImageWriteToSavedPhotosAlbum(drawingImage, nil, nil, nil)
     }
     
+    func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        let tenths = Int((time * 10).truncatingRemainder(dividingBy: 10))
+        return String(format: "%02d:%02d.%01d", minutes, seconds, tenths)
+    }
+
+    func finishCurrentWord() {
+        guard currentWordIndex < generatedWords.count,
+              let start = wordStartTime else { return }
+
+        let elapsed = Date().timeIntervalSince(start)
+
+        if completedTimes.count > currentWordIndex {
+            completedTimes[currentWordIndex] = elapsed
+        } else {
+            completedTimes.append(elapsed)
+        }
+
+        if currentWordIndex < generatedWords.count - 1 {
+            currentWordIndex += 1
+            canvas.drawing = PKDrawing()
+            wordStartTime = Date()
+            currentWordElapsed = 0
+        } else {
+            overallElapsed = Date().timeIntervalSince(overallStartTime ?? Date())
+            showCongratsPanel = true
+            wordStartTime = nil
+        }
+    }
+    
     func startNewGame() async {
         canvas.drawing = PKDrawing()
         generatedWords = []
         generationError = nil
         isGeneratingWords = true
+        showCongratsPanel = false
+        currentWordIndex = 0
+        completedTimes = []
+        currentWordElapsed = 0
+        overallElapsed = 0
+        wordStartTime = nil
+        overallStartTime = nil
 
         do {
             let words = try await generateWordsFromTopic(topic: gameTopic, count: questionCount)
             generatedWords = words
+
+            if !words.isEmpty {
+                currentWordIndex = 0
+                let now = Date()
+                wordStartTime = now
+                overallStartTime = now
+            }
+
             print("Generated words: \(words)")
         } catch {
             generationError = error.localizedDescription
