@@ -39,16 +39,48 @@ struct FreeFormDrawingView: View {
     
     @State private var completedDrawings: [DrawingResult] = []
     let gameTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
+
+    // --- ADDED: animated gradient state ---
+    @State private var gradientPhase: Double = 0
+    let bgAnimTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+
+    var dynamicBGColors: [Color] {
+        if bgHue > 1.0 {
+            return [.white, Color(hue: 0.0, saturation: 0.0, brightness: 0.97)]
+        }
+        let h1 = bgHue
+        let h2 = (bgHue + 0.12).truncatingRemainder(dividingBy: 1.0)
+        let h3 = (bgHue + 0.25 + gradientPhase * 0.003).truncatingRemainder(dividingBy: 1.0)
+        return [
+            Color(hue: h1, saturation: 0.35, brightness: 0.98),
+            Color(hue: h2, saturation: 0.25, brightness: 0.95),
+            Color(hue: h3, saturation: 0.20, brightness: 0.92),
+        ]
+    }
+    // --- END ADDED ---
     
     var body: some View {
         NavigationStack {
-            DrawingView(
-                canvas: $canvas,
-                isDrawing: $isDrawing,
-                pencilType: $pencilType,
-                color: $color,
-                bgHue: $bgHue
-            )
+            // --- ADDED: ZStack to layer gradient behind DrawingView ---
+            ZStack {
+                if bgHue <= 1.0 {
+                    LinearGradient(
+                        colors: dynamicBGColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 1.5), value: gradientPhase)
+                }
+                DrawingView(
+                    canvas: $canvas,
+                    isDrawing: $isDrawing,
+                    pencilType: $pencilType,
+                    color: $color,
+                    bgHue: $bgHue
+                )
+            }
+            // --- END ADDED ---
                 .overlay(alignment: .topLeading) {
                     if isGeneratingWords {
                         ProgressView("Generating words...")
@@ -123,33 +155,27 @@ struct FreeFormDrawingView: View {
                                     }
                                 }
                             }
-                            
                             .frame(maxWidth: 300, alignment: .leading)
                             Divider()
                             Text("Overall Time: \(formatTime(overallElapsed))")
                                 .font(.title3)
                                 .bold()
-                            
                             Divider()
                             Text("Your Drawings")
                                 .font(.headline)
-                            
                             ScrollView(.horizontal) {
                                 HStack(spacing: 16) {
                                     ForEach(completedDrawings) { item in
                                         VStack(spacing: 6) {
-                                            
                                             Image(uiImage: item.image)
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: 140, height: 140)
                                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                                            
                                             Text(item.word)
                                                 .font(.caption)
                                                 .bold()
                                                 .lineLimit(1)
-                                            
                                             Text(formatTime(item.time))
                                                 .font(.caption2)
                                                 .foregroundStyle(.secondary)
@@ -176,6 +202,14 @@ struct FreeFormDrawingView: View {
                         overallElapsed = Date().timeIntervalSince(overallStart)
                     }
                 }
+                // --- ADDED: drive the gradient animation ---
+                .onReceive(bgAnimTimer) { _ in
+                    if bgHue <= 1.0 {
+                        gradientPhase += 1
+                        if gradientPhase > 1000 { gradientPhase = 0 }
+                    }
+                }
+                // --- END ADDED ---
                 .sheet(isPresented: $showNewGamePopup) {
                     VStack(spacing: 20) {
                         Text("Start New Game")
@@ -205,7 +239,6 @@ struct FreeFormDrawingView: View {
                     .frame(width: 400)
                 }
                 .navigationBarTitleDisplayMode(.inline)
-                // Top ornament: Start
                 .ornament(attachmentAnchor: .scene(.top)) {
                     HStack(spacing: 64) {
                         Button {
@@ -217,7 +250,6 @@ struct FreeFormDrawingView: View {
                                     .font(.caption2)
                             }
                         }
-                        
                         Button {
                             //
                         } label: {
@@ -227,7 +259,6 @@ struct FreeFormDrawingView: View {
                                     .font(.caption2)
                             }
                         }
-                        
                         Button {
                             //
                         } label: {
@@ -237,8 +268,6 @@ struct FreeFormDrawingView: View {
                                     .font(.caption2)
                             }
                         }
-                        
-                        // Screen sharing
                         Button {
                             //
                         } label: {
@@ -250,11 +279,9 @@ struct FreeFormDrawingView: View {
                                 }
                             }
                         }
-                        // Screen recording
                         Button {
                             isRecording.toggle()
                         } label: {
-                            //Image(systemName: "rectangle.dashed.badge.record")
                             VStack(spacing: 8) {
                                 Image(systemName: isRecording ? "rectangle.inset.filled.badge.record" : "rectangle.dashed.badge.record")
                                 withAnimation {
@@ -267,34 +294,25 @@ struct FreeFormDrawingView: View {
                     .padding(12)
                     .glassBackgroundEffect()
                     .buttonStyle(.plain)
-                } // Top ornament: End
-                // Leading ornament: Start
+                }
                 .ornament(attachmentAnchor: .scene(.leading)) {
-                    // Modify Tools
                     VStack(spacing: 32) {
                         Button {
-                            // Clear the canvas. Reset the drawing
                             canvas.drawing = PKDrawing()
                         } label: {
                             Image(systemName: "scissors")
                         }
-                        
                         Button {
-                            // Undo drawing
                             undoManager?.undo()
                         } label: {
                             Image(systemName: "arrow.uturn.backward")
                         }
-                        
                         Button {
-                            // Redo drawing
                             undoManager?.redo()
                         } label: {
                             Image(systemName: "arrow.uturn.forward")
                         }
-                        
                         Button {
-                            // Erase tool
                             isDrawing = false
                         } label: {
                             Image(systemName: "eraser.line.dashed")
@@ -308,16 +326,15 @@ struct FreeFormDrawingView: View {
                             Text("Background")
                                 .font(.caption2)
                         }
-                    } // Modify tools
+                    }
                     .padding(12)
                     .buttonStyle(.plain)
                     .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 32))
-                } // Leading ornament: End
-                .toolbar {  // Bottom Ornament: Start
+                }
+                .toolbar {
                     ToolbarItemGroup(placement: .bottomOrnament) {
-                        HStack { // Drawing Tools
+                        HStack {
                             Button {
-                                // Pencil
                                 isDrawing = true
                                 pencilType = .pencil
                             } label: {
@@ -328,9 +345,7 @@ struct FreeFormDrawingView: View {
                                 }
                             }
                             .buttonStyle(.plain)
-                            
                             Button {
-                                // Pen
                                 isDrawing = true
                                 pencilType = .pen
                             } label: {
@@ -340,9 +355,7 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            
                             Button {
-                                // Monoline
                                 isDrawing = true
                                 pencilType = .monoline
                             } label: {
@@ -352,9 +365,7 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            
                             Button {
-                                // Fountain: Variable scribbling
                                 isDrawing = true
                                 pencilType = .fountainPen
                             } label: {
@@ -364,9 +375,7 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            
                             Button {
-                                // Marker
                                 isDrawing = true
                                 pencilType = .marker
                             } label: {
@@ -376,9 +385,7 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            
                             Button {
-                                // Crayon
                                 isDrawing = true
                                 pencilType = .crayon
                             } label: {
@@ -388,9 +395,7 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            
                             Button {
-                                // Water Color
                                 isDrawing = true
                                 pencilType = .watercolor
                             } label: {
@@ -400,10 +405,7 @@ struct FreeFormDrawingView: View {
                                         .foregroundStyle(.white)
                                 }
                             }
-                            
-                            // Color picker
                             Button {
-                                // Pick a color
                                 colorPicker.toggle()
                             } label: {
                                 VStack(spacing: 8) {
@@ -420,26 +422,21 @@ struct FreeFormDrawingView: View {
                                     .foregroundStyle(.white)
                                     .font(.caption2)
                             }
-                            
-                        } // Drawing Tools
+                        }
                         .padding(.horizontal)
                         .foregroundStyle(
                             LinearGradient(gradient: Gradient(colors: [.green, .yellow]), startPoint: .leading, endPoint: .bottom)
                         )
                     }
-                } // Bottom Ornament: End
-                // Trailing Ornament: Start
+                }
                 .ornament(attachmentAnchor: .scene(.trailing)) {
                     VStack(spacing: 32) {
                         Button {
-                            // Set ruler as active
                             canvas.isRulerActive.toggle()
                         } label: {
                             Image(systemName: "pencil.and.ruler.fill")
                         }
                         Button {
-                            // Tool picker
-                            //let toolPicker = PKToolPicker.init()
                             let toolPicker = PKToolPicker()
                             toolPicker.setVisible(true, forFirstResponder: canvas)
                             toolPicker.addObserver(canvas)
@@ -447,72 +444,15 @@ struct FreeFormDrawingView: View {
                         } label: {
                             Image(systemName: "pencil.tip.crop.circle.badge.plus")
                         }
-                        
-                        // Menu for pencil types and color
                         Menu {
-                            Button {
-                                // Menu: Pick a color
-                                colorPicker.toggle()
-                            } label: {
-                                Label("Color", systemImage: "paintpalette")
-                            }
-                            
-                            Button {
-                                // Menu: Pencil
-                                isDrawing = true
-                                pencilType = .pencil
-                            } label: {
-                                Label("Pencil", systemImage: "pencil")
-                            }
-                            
-                            Button {
-                                // Menu: pen
-                                isDrawing = true
-                                pencilType = .pen
-                            } label: {
-                                Label("Pen", systemImage: "pencil.tip")
-                            }
-                            
-                            Button {
-                                // Menu: Marker
-                                isDrawing = true
-                                pencilType = .marker
-                            } label: {
-                                Label("Marker", systemImage: "paintbrush.pointed")
-                            }
-                            
-                            Button {
-                                // Menu: Monoline
-                                isDrawing = true
-                                pencilType = .monoline
-                            } label: {
-                                Label("Monoline", systemImage: "pencil.line")
-                            }
-                            
-                            Button {
-                                // Menu: pen
-                                isDrawing = true
-                                pencilType = .fountainPen
-                            } label: {
-                                Label("Fountain", systemImage: "paintbrush.pointed.fill")
-                            }
-                            
-                            Button {
-                                // Menu: Watercolor
-                                isDrawing = true
-                                pencilType = .watercolor
-                            } label: {
-                                Label("Watercolor", systemImage: "eyedropper.halffull")
-                            }
-                            
-                            Button {
-                                // Menu: Crayon
-                                isDrawing = true
-                                pencilType = .crayon
-                            } label: {
-                                Label("Crayon", systemImage: "pencil.tip")
-                            }
-                            
+                            Button { colorPicker.toggle() } label: { Label("Color", systemImage: "paintpalette") }
+                            Button { isDrawing = true; pencilType = .pencil } label: { Label("Pencil", systemImage: "pencil") }
+                            Button { isDrawing = true; pencilType = .pen } label: { Label("Pen", systemImage: "pencil.tip") }
+                            Button { isDrawing = true; pencilType = .marker } label: { Label("Marker", systemImage: "paintbrush.pointed") }
+                            Button { isDrawing = true; pencilType = .monoline } label: { Label("Monoline", systemImage: "pencil.line") }
+                            Button { isDrawing = true; pencilType = .fountainPen } label: { Label("Fountain", systemImage: "paintbrush.pointed.fill") }
+                            Button { isDrawing = true; pencilType = .watercolor } label: { Label("Watercolor", systemImage: "eyedropper.halffull") }
+                            Button { isDrawing = true; pencilType = .crayon } label: { Label("Crayon", systemImage: "pencil.tip") }
                         } label: {
                             Image(systemName: "hand.draw")
                         }
@@ -530,10 +470,8 @@ struct FreeFormDrawingView: View {
                     }.padding(12)
                         .buttonStyle(.plain)
                         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 32))
-                } // Trailing Ornament: End
-            
+                }
         }
-        
     }
     
     func resetGame() {
@@ -617,10 +555,7 @@ struct FreeFormDrawingView: View {
     }
     
     func saveDrawing() {
-        // Get the drawing image from the canvas
         let drawingImage = canvas.drawing.image(from: canvas.drawing.bounds, scale: 1.0)
-        
-        // Save drawings to the Photos Album
         UIImageWriteToSavedPhotosAlbum(drawingImage, nil, nil, nil)
     }
     
@@ -630,6 +565,7 @@ struct FreeFormDrawingView: View {
         let tenths = Int((time * 10).truncatingRemainder(dividingBy: 10))
         return String(format: "%02d:%02d.%01d", minutes, seconds, tenths)
     }
+    
     func finishCurrentWord() {
         guard currentWordIndex < generatedWords.count,
               let start = wordStartTime else { return }
@@ -639,7 +575,6 @@ struct FreeFormDrawingView: View {
         } else {
             completedTimes.append(elapsed)
         }
-        // ⭐ STEP ADDED: SAVE DRAWING IMAGE
         let image = canvas.drawing.image(from: canvas.drawing.bounds, scale: 2.0)
         let result = DrawingResult(
             word: generatedWords[currentWordIndex],
@@ -649,12 +584,12 @@ struct FreeFormDrawingView: View {
         completedDrawings.append(result)
         if currentWordIndex < generatedWords.count - 1 {
             currentWordIndex += 1
-            canvas.drawing = PKDrawing()   // clear AFTER saving
+            canvas.drawing = PKDrawing()
             wordStartTime = Date()
             currentWordElapsed = 0
         } else {
             overallElapsed = Date().timeIntervalSince(overallStartTime ?? Date())
-            showCongratsPanel = true   // 👈 THIS is your end screen
+            showCongratsPanel = true
             wordStartTime = nil
         }
     }
@@ -688,62 +623,42 @@ struct FreeFormDrawingView: View {
         isGeneratingWords = false
     }
 }
+
 struct DrawingView: UIViewRepresentable {
-    // Capture drawings for saving in the photos library
     @Binding var canvas: PKCanvasView
     @Binding var isDrawing: Bool
-    // Ability to switch a pencil
     @Binding var pencilType: PKInkingTool.InkType
-    // Ability to change a pencil color
     @Binding var color: Color
-    @Binding var bgHue: Double   // <-- ADD (line ~215)
-    
-    
-    //let ink = PKInkingTool(.pencil, color: .black)
-    // Update ink type
+    @Binding var bgHue: Double
+
     var ink: PKInkingTool {
         PKInkingTool(pencilType, color: UIColor(color))
     }
-    
     let eraser = PKEraserTool(.bitmap)
     
     func makeUIView(context: Context) -> PKCanvasView {
-        // Allow finger and pencil drawing
         canvas.drawingPolicy = .anyInput
-        
         canvas.tool = isDrawing ? ink : eraser
         canvas.isRulerActive = true
-        canvas.backgroundColor = UIColor(
-            bgHue > 1.0
-                ? Color.white
-                : Color(hue: bgHue, saturation: 0.3, brightness: 1.0).opacity(0.3)
-        )
+        // --- CHANGED: transparent so SwiftUI gradient shows through ---
+        canvas.backgroundColor = .clear
         canvas.overrideUserInterfaceStyle = .light
-        
-        // From Brian Advent: Show the default toolpicker
         canvas.alwaysBounceVertical = true
         canvas.isScrollEnabled = true
-        
         let toolPicker = PKToolPicker.init()
         toolPicker.setVisible(true, forFirstResponder: canvas)
-        toolPicker.addObserver(canvas) // Notify when the picker configuration changes
+        toolPicker.addObserver(canvas)
         canvas.becomeFirstResponder()
-        
         return canvas
     }
     
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
-        
-        // Update tool whenever the main view updates
         uiView.tool = isDrawing ? ink : eraser
-        canvas.backgroundColor = UIColor(
-            bgHue > 1.0
-                ? Color.white
-                : Color(hue: bgHue, saturation: 0.3, brightness: 1.0).opacity(0.3)
-        )
+        // --- CHANGED: keep transparent on updates too ---
+        uiView.backgroundColor = .clear
     }
 }
+
 #Preview {
     FreeFormDrawingView()
 }
-
