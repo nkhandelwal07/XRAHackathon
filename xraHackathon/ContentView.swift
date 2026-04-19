@@ -4,6 +4,43 @@
 import SwiftUI
 import PencilKit
 internal import Combine
+
+// MARK: - Pre-existing Word Sets
+struct WordSet: Identifiable {
+    let id = UUID()
+    let name: String
+    let emoji: String
+    let color: Color
+    let words: [String]
+}
+
+let prebuiltSets: [WordSet] = [
+    WordSet(name: "Spanish", emoji: "🇪🇸", color: Color(hue: 0.04, saturation: 0.8, brightness: 0.9),
+            words: ["casa", "perro", "gato", "árbol", "sol", "luna", "agua", "fuego", "montaña", "río"]),
+    WordSet(name: "French", emoji: "🇫🇷", color: Color(hue: 0.60, saturation: 0.7, brightness: 0.75),
+            words: ["maison", "chien", "chat", "arbre", "soleil", "lune", "eau", "feu", "montagne", "rivière"]),
+    WordSet(name: "Japanese", emoji: "🇯🇵", color: Color(hue: 0.97, saturation: 0.7, brightness: 0.85),
+            words: ["山", "川", "海", "空", "木", "花", "犬", "猫", "魚", "鳥"]),
+    WordSet(name: "German", emoji: "🇩🇪", color: Color(hue: 0.13, saturation: 0.7, brightness: 0.85),
+            words: ["Haus", "Hund", "Katze", "Baum", "Sonne", "Mond", "Wasser", "Feuer", "Berg", "Fluss"]),
+    WordSet(name: "Italian", emoji: "🇮🇹", color: Color(hue: 0.35, saturation: 0.65, brightness: 0.65),
+            words: ["casa", "cane", "gatto", "albero", "sole", "luna", "acqua", "fuoco", "montagna", "fiume"]),
+    WordSet(name: "Mandarin", emoji: "🇨🇳", color: Color(hue: 0.02, saturation: 0.85, brightness: 0.80),
+            words: ["山", "河", "海", "天", "树", "花", "狗", "猫", "鱼", "鸟"]),
+    WordSet(name: "Portuguese", emoji: "🇧🇷", color: Color(hue: 0.38, saturation: 0.70, brightness: 0.60),
+            words: ["casa", "cachorro", "gato", "árvore", "sol", "lua", "água", "fogo", "montanha", "rio"]),
+    WordSet(name: "Korean", emoji: "🇰🇷", color: Color(hue: 0.55, saturation: 0.60, brightness: 0.70),
+            words: ["산", "강", "바다", "하늘", "나무", "꽃", "개", "고양이", "물고기", "새"]),
+    WordSet(name: "Arabic", emoji: "🇸🇦", color: Color(hue: 0.25, saturation: 0.70, brightness: 0.55),
+            words: ["بيت", "كلب", "قطة", "شجرة", "شمس", "قمر", "ماء", "نار", "جبل", "نهر"]),
+    WordSet(name: "Animals", emoji: "🐾", color: Color(hue: 0.08, saturation: 0.60, brightness: 0.80),
+            words: ["elephant", "giraffe", "penguin", "dolphin", "tiger", "kangaroo", "owl", "fox", "bear", "shark"]),
+    WordSet(name: "Food", emoji: "🍕", color: Color(hue: 0.07, saturation: 0.75, brightness: 0.90),
+            words: ["pizza", "sushi", "taco", "ramen", "burger", "pasta", "croissant", "dumpling", "curry", "ice cream"]),
+    WordSet(name: "Nature", emoji: "🌿", color: Color(hue: 0.33, saturation: 0.55, brightness: 0.55),
+            words: ["volcano", "waterfall", "glacier", "desert", "rainforest", "coral reef", "canyon", "tundra", "savanna", "marsh"]),
+]
+
 struct FreeFormDrawingView: View {
     
     @State private var canvas = PKCanvasView()
@@ -39,9 +76,16 @@ struct FreeFormDrawingView: View {
     
     @State private var completedDrawings: [DrawingResult] = []
     let gameTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
-    // --- ADDED: animated gradient state ---
+
     @State private var gradientPhase: Double = 0
     let bgAnimTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+
+    // MARK: - New game setup state
+    @State private var gameSetupMode: GameSetupMode = .choose   // which screen we're on
+    enum GameSetupMode { case choose, prebuilt, ai }
+
+    let titleColor = Color(hue: 0.70, saturation: 0.6, brightness: 0.25)
+
     var dynamicBGColors: [Color] {
         if bgHue > 1.0 {
             return [.white, Color(hue: 0.0, saturation: 0.0, brightness: 0.97)]
@@ -55,11 +99,9 @@ struct FreeFormDrawingView: View {
             Color(hue: h3, saturation: 0.20, brightness: 0.92),
         ]
     }
-    // --- END ADDED ---
     
     var body: some View {
         NavigationStack {
-            // --- ADDED: ZStack to layer gradient behind DrawingView ---
             ZStack {
                 if bgHue <= 1.0 {
                     LinearGradient(
@@ -78,7 +120,6 @@ struct FreeFormDrawingView: View {
                     bgHue: $bgHue
                 )
             }
-            // --- END ADDED ---
                 .overlay(alignment: .topLeading) {
                     if isGeneratingWords {
                         ProgressView("Generating words...")
@@ -90,16 +131,16 @@ struct FreeFormDrawingView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Words for \(gameTopic)")
                                 .font(.headline)
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
                                 HStack(spacing: 8) {
                                     Text("\(index + 1). \(word)")
                                         .fontWeight(index == currentWordIndex && !showCongratsPanel ? .bold : .regular)
-                                        .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                        .foregroundStyle(titleColor)
                                     if index < completedTimes.count {
                                         Text("• \(formatTime(completedTimes[index]))")
                                             .font(.caption)
-                                            .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                            .foregroundStyle(titleColor)
                                     }
                                 }
                             }
@@ -120,22 +161,22 @@ struct FreeFormDrawingView: View {
                         VStack(spacing: 12) {
                             Text("Draw:")
                                 .font(.caption)
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             Text(generatedWords[currentWordIndex])
                                 .font(.largeTitle)
                                 .bold()
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             Text("Word Time: \(formatTime(currentWordElapsed))")
                                 .font(.headline)
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             Text("Total Time: \(formatTime(overallElapsed))")
                                 .font(.subheadline)
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             Button("Done") {
                                 finishCurrentWord()
                             }
                             .buttonStyle(.borderedProminent)
-                            .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                            .foregroundStyle(titleColor)
                         }
                         .padding()
                         .background(.ultraThinMaterial)
@@ -149,15 +190,15 @@ struct FreeFormDrawingView: View {
                             Text("Congratulations!")
                                 .font(.largeTitle)
                                 .bold()
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             Text("You finished all the words for \(gameTopic)")
                                 .font(.headline)
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
                                     if index < completedTimes.count {
                                         Text("\(index + 1). \(word): \(formatTime(completedTimes[index]))")
-                                            .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                            .foregroundStyle(titleColor)
                                     }
                                 }
                             }
@@ -166,11 +207,11 @@ struct FreeFormDrawingView: View {
                             Text("Overall Time: \(formatTime(overallElapsed))")
                                 .font(.title3)
                                 .bold()
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             Divider()
                             Text("Your Drawings")
                                 .font(.headline)
-                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                .foregroundStyle(titleColor)
                             ScrollView(.horizontal) {
                                 HStack(spacing: 16) {
                                     ForEach(completedDrawings) { item in
@@ -179,16 +220,16 @@ struct FreeFormDrawingView: View {
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: 140, height: 140)
-                                                .colorMultiply(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                                .colorMultiply(titleColor)
                                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                             Text(item.word)
                                                 .font(.caption)
                                                 .bold()
                                                 .lineLimit(1)
-                                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                                .foregroundStyle(titleColor)
                                             Text(formatTime(item.time))
                                                 .font(.caption2)
-                                                .foregroundStyle(Color(hue: 0.70, saturation: 0.6, brightness: 0.25))
+                                                .foregroundStyle(titleColor)
                                         }
                                         .frame(width: 150)
                                     }
@@ -212,41 +253,190 @@ struct FreeFormDrawingView: View {
                         overallElapsed = Date().timeIntervalSince(overallStart)
                     }
                 }
-                // --- ADDED: drive the gradient animation ---
                 .onReceive(bgAnimTimer) { _ in
                     if bgHue <= 1.0 {
                         gradientPhase += 1
                         if gradientPhase > 1000 { gradientPhase = 0 }
                     }
                 }
-                // --- END ADDED ---
-                .sheet(isPresented: $showNewGamePopup) {
-                    VStack(spacing: 20) {
-                        Text("Start New Game")
-                            .font(.title2)
-                            .bold()
-                        TextField("Enter a topic", text: $gameTopic)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(.horizontal)
-                        Stepper("Number of Questions: \(questionCount)", value: $questionCount, in: 1...20)
-                            .padding(.horizontal)
-                        HStack(spacing: 16) {
-                            Button("Cancel") {
-                                showNewGamePopup = false
+                // MARK: - Game Setup Sheet
+                .sheet(isPresented: $showNewGamePopup, onDismiss: { gameSetupMode = .choose }) {
+                    Group {
+                        switch gameSetupMode {
+
+                        // ── Screen 1: Choose mode ──────────────────────────────
+                        case .choose:
+                            VStack(spacing: 20) {
+                                Text("Start New Game")
+                                    .font(.title3).bold()
+
+                                HStack(spacing: 16) {
+                                    Button {
+                                        gameSetupMode = .prebuilt
+                                    } label: {
+                                        VStack(spacing: 8) {
+                                            Text("Pre-built Sets")
+                                                .font(.headline)
+                                            Text("Language &\ntopic collections")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .multilineTextAlignment(.center)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 20)
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(titleColor.opacity(0.4), lineWidth: 1.5)
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Button {
+                                        gameSetupMode = .ai
+                                    } label: {
+                                        VStack(spacing: 8) {
+                                            Text("AI Generated")
+                                                .font(.headline)
+                                            Text("Enter any topic,\nAI picks the words")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .multilineTextAlignment(.center)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 20)
+                                        .background(.ultraThinMaterial)
+                                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(titleColor.opacity(0.4), lineWidth: 1.5)
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                Button("Cancel") { showNewGamePopup = false }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
                             }
-                            .buttonStyle(.bordered)
-                            Button("Start") {
-                                Task {
-                                    await startNewGame()
-                                    showNewGamePopup = false
+                            .padding(20)
+                            .frame(width: 380)
+
+                        // ── Screen 2: Pre-built set picker ────────────────────
+                        case .prebuilt:
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Button {
+                                        gameSetupMode = .choose
+                                    } label: {
+                                        Label("Back", systemImage: "chevron.left")
+                                            .font(.subheadline)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(titleColor)
+                                    Spacer()
+                                    Text("Choose a Set")
+                                        .font(.title3).bold()
+                                    Spacer()
+                                    Color.clear.frame(width: 60)
+                                }
+
+                                Stepper("Words: \(questionCount)", value: $questionCount, in: 1...10)
+                                    .font(.subheadline)
+
+                                ScrollView {
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
+                                        ForEach(prebuiltSets) { set in
+                                            Button {
+                                                Task {
+                                                    gameTopic = set.name
+                                                    let count = min(questionCount, set.words.count)
+                                                    let words = Array(set.words.shuffled().prefix(count))
+                                                    await startPrebuiltGame(topic: set.name, words: words)
+                                                    showNewGamePopup = false
+                                                }
+                                            } label: {
+                                                VStack(spacing: 8) {
+                                                    Text(set.emoji)
+                                                        .font(.system(size: 32))
+                                                        .frame(width: 56, height: 56)
+                                                        .background(set.color.opacity(0.15))
+                                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 12)
+                                                                .stroke(set.color.opacity(0.4), lineWidth: 1)
+                                                        )
+                                                    Text(set.name)
+                                                        .font(.caption)
+                                                        .bold()
+                                                        .foregroundStyle(titleColor)
+                                                    Text("\(min(questionCount, set.words.count)) words")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 12)
+                                                .background(.ultraThinMaterial)
+                                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 14)
+                                                        .stroke(set.color.opacity(0.3), lineWidth: 1)
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                                .frame(width: 420, height: 380)
+                            }
+                            .padding(16)
+                            .fixedSize()
+
+                        // ── Screen 3: AI topic entry ───────────────────────────
+                        case .ai:
+                            VStack(spacing: 16) {
+                                HStack {
+                                    Button {
+                                        gameSetupMode = .choose
+                                    } label: {
+                                        Label("Back", systemImage: "chevron.left")
+                                            .font(.subheadline)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(titleColor)
+                                    Spacer()
+                                    Text("AI Generated")
+                                        .font(.title3).bold()
+                                    Spacer()
+                                    Color.clear.frame(width: 60)
+                                }
+
+                                TextField("Enter any topic (e.g. Space, Animals…)", text: $gameTopic)
+                                    .textFieldStyle(.roundedBorder)
+
+                                Stepper("Number of Words: \(questionCount)", value: $questionCount, in: 1...20)
+                                    .font(.subheadline)
+
+                                HStack(spacing: 12) {
+                                    Button("Cancel") { showNewGamePopup = false }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    Button("Generate & Start") {
+                                        Task {
+                                            await startNewGame()
+                                            showNewGamePopup = false
+                                        }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                                    .disabled(gameTopic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingWords)
                                 }
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(gameTopic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingWords)
+                            .padding(20)
+                            .fixedSize()
                         }
                     }
-                    .padding()
-                    .frame(width: 400)
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .ornament(attachmentAnchor: .scene(.top)) {
@@ -484,17 +674,40 @@ struct FreeFormDrawingView: View {
         }
     }
     
+    // MARK: - Game Logic
+    
     func resetGame() {
         canvas.drawing = PKDrawing()
         generatedWords = []
         currentWordIndex = 0
         completedTimes = []
+        completedDrawings = []
         wordStartTime = nil
         overallStartTime = nil
         currentWordElapsed = 0
         overallElapsed = 0
         showCongratsPanel = false
         generationError = nil
+    }
+
+    func startPrebuiltGame(topic: String, words: [String]) async {
+        canvas.drawing = PKDrawing()
+        generatedWords = []
+        generationError = nil
+        showCongratsPanel = false
+        currentWordIndex = 0
+        completedTimes = []
+        completedDrawings = []
+        currentWordElapsed = 0
+        overallElapsed = 0
+        wordStartTime = nil
+        overallStartTime = nil
+        generatedWords = words
+        if !words.isEmpty {
+            let now = Date()
+            wordStartTime = now
+            overallStartTime = now
+        }
     }
     
     struct DrawingResult: Identifiable {
@@ -522,6 +735,7 @@ struct FreeFormDrawingView: View {
             let content: String
         }
     }
+
     func generateWordsFromTopic(topic: String, count: Int) async throws -> [String] {
         let apiKey = ""
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
@@ -612,6 +826,7 @@ struct FreeFormDrawingView: View {
         showCongratsPanel = false
         currentWordIndex = 0
         completedTimes = []
+        completedDrawings = []
         currentWordElapsed = 0
         overallElapsed = 0
         wordStartTime = nil
@@ -633,6 +848,7 @@ struct FreeFormDrawingView: View {
         isGeneratingWords = false
     }
 }
+
 struct DrawingView: UIViewRepresentable {
     @Binding var canvas: PKCanvasView
     @Binding var isDrawing: Bool
@@ -648,7 +864,6 @@ struct DrawingView: UIViewRepresentable {
         canvas.drawingPolicy = .anyInput
         canvas.tool = isDrawing ? ink : eraser
         canvas.isRulerActive = true
-        // --- CHANGED: transparent so SwiftUI gradient shows through ---
         canvas.backgroundColor = .clear
         canvas.overrideUserInterfaceStyle = .light
         canvas.alwaysBounceVertical = true
@@ -662,12 +877,10 @@ struct DrawingView: UIViewRepresentable {
     
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         uiView.tool = isDrawing ? ink : eraser
-        // --- CHANGED: keep transparent on updates too ---
         uiView.backgroundColor = .clear
     }
 }
+
 #Preview {
     FreeFormDrawingView()
 }
-
-
