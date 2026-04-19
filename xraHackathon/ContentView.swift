@@ -83,6 +83,9 @@ struct FreeFormDrawingView: View {
     // MARK: - New game setup state
     @State private var gameSetupMode: GameSetupMode = .choose   // which screen we're on
     enum GameSetupMode { case choose, prebuilt, ai }
+    
+    @State private var difficulty: Difficulty = .medium
+    enum Difficulty: String, CaseIterable { case easy = "Easy", medium = "Medium", hard = "Hard" }
 
     let titleColor = Color(hue: 0.70, saturation: 0.6, brightness: 0.25)
 
@@ -418,6 +421,19 @@ struct FreeFormDrawingView: View {
                                 Stepper("Number of Words: \(questionCount)", value: $questionCount, in: 1...20)
                                     .font(.subheadline)
 
+                                VStack(spacing: 6) {
+                                    Text("Difficulty")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Picker("Difficulty", selection: $difficulty) {
+                                        ForEach(Difficulty.allCases, id: \.self) { level in
+                                            Text(level.rawValue).tag(level)
+                                        }
+                                    }
+                                    .pickerStyle(.segmented)
+                                }
+
                                 HStack(spacing: 12) {
                                     Button("Cancel") { showNewGamePopup = false }
                                         .buttonStyle(.bordered)
@@ -741,8 +757,16 @@ struct FreeFormDrawingView: View {
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
             throw URLError(.badURL)
         }
+        let difficultyDescription: String
+        switch difficulty {
+        case .easy:   difficultyDescription = "very simple and common, suitable for beginners or young children"
+        case .medium: difficultyDescription = "moderately challenging, suitable for intermediate learners"
+        case .hard:   difficultyDescription = "advanced and specific, suitable for expert learners"
+        }
+
         let prompt = """
         Generate exactly \(count) simple, concrete, drawable vocabulary words that help someone learn the topic "\(topic)".
+        The difficulty level should be \(difficultyDescription).
         Return only a comma-separated list.
         Keep each item short, ideally 1 to 3 words.
         """
