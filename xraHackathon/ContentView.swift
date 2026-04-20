@@ -105,24 +105,56 @@ struct FreeFormDrawingView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                if bgHue <= 1.0 {
-                    LinearGradient(
-                        colors: dynamicBGColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 1.5), value: gradientPhase)
+//            DrawingView(
+//                canvas: $canvas,
+//                isDrawing: $isDrawing,
+//                pencilType: $pencilType,
+//                color: $color,
+//                bgHue: $bgHue
+//            )
+//            let columns = splitCount == 1 ? 1 : 2
+//
+//            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: columns), spacing: 4) {
+//                ForEach(0..<splitCount, id: \.self) { _ in
+//                    DrawingView(
+//                        canvas: .constant(PKCanvasView()),
+//                        isDrawing: $isDrawing,
+//                        pencilType: $pencilType,
+//                        color: $color,
+//                        bgHue: .constant(0.0)
+//                    )
+//                    .frame(maxWidth: .infinity, minHeight: 300)
+//                    .cornerRadius(12)
+//                }
+//            }
+            GeometryReader { geo in
+                let columns = splitCount == 1 ? 1 : 2
+                let itemHeight = splitCount <= 2 ? geo.size.height : geo.size.height / 2
+
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: columns), spacing: 4) {
+                    ForEach(0..<splitCount, id: \.self) { _ in
+                        DrawingView(
+                            canvas: .constant(PKCanvasView()),
+                            isDrawing: $isDrawing,
+                            pencilType: $pencilType,
+                            color: $color,
+                            bgHue: .constant(0.0)
+                        )
+                        .frame(width: geo.size.width / CGFloat(columns) - 4, height: itemHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
+                    }
                 }
-                DrawingView(
-                    canvas: $canvas,
-                    isDrawing: $isDrawing,
-                    pencilType: $pencilType,
-                    color: $color,
-                    bgHue: $bgHue
-                )
+                .frame(width: geo.size.width, height: geo.size.height)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if isGeneratingWords {
                         ProgressView("Generating words...")
@@ -143,7 +175,8 @@ struct FreeFormDrawingView: View {
                                     if index < completedTimes.count {
                                         Text("• \(formatTime(completedTimes[index]))")
                                             .font(.caption)
-                                            .foregroundStyle(titleColor)
+                                            .foregroundStyle(.secondary)
+                                            .monospacedDigit()
                                     }
                                 }
                             }
@@ -156,96 +189,155 @@ struct FreeFormDrawingView: View {
                         .padding()
                         .background(.ultraThinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.14), radius: 18, x: 0, y: 10)
                         .padding()
                     }
                 }
                 .overlay(alignment: .top) {
                     if !generatedWords.isEmpty && !showCongratsPanel && currentWordIndex < generatedWords.count {
                         VStack(spacing: 12) {
-                            Text("Draw:")
+                            Label("Draw", systemImage: "pencil.and.outline")
                                 .font(.caption)
                                 .foregroundStyle(titleColor)
                             Text(generatedWords[currentWordIndex])
-                                .font(.largeTitle)
-                                .bold()
-                                .foregroundStyle(titleColor)
+                                .font(.system(size: 44, weight: .bold, design: .rounded))
+                                .minimumScaleFactor(0.6)
+                                .lineLimit(1)
+
                             Text("Word Time: \(formatTime(currentWordElapsed))")
                                 .font(.headline)
-                                .foregroundStyle(titleColor)
+                                .monospacedDigit()
+
                             Text("Total Time: \(formatTime(overallElapsed))")
                                 .font(.subheadline)
-                                .foregroundStyle(titleColor)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+
                             Button("Done") {
                                 finishCurrentWord()
                             }
                             .buttonStyle(.borderedProminent)
                             .foregroundStyle(titleColor)
                         }
-                        .padding()
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 16)
                         .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.18), radius: 22, x: 0, y: 12)
                         .padding(.top, 40)
                     }
                 }
                 .overlay {
                     if showCongratsPanel {
-                        VStack(spacing: 16) {
-                            Text("Congratulations!")
-                                .font(.largeTitle)
-                                .bold()
-                                .foregroundStyle(titleColor)
-                            Text("You finished all the words for \(gameTopic)")
-                                .font(.headline)
-                                .foregroundStyle(titleColor)
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
-                                    if index < completedTimes.count {
-                                        Text("\(index + 1). \(word): \(formatTime(completedTimes[index]))")
-                                            .foregroundStyle(titleColor)
+                        ZStack {
+                            Color.black.opacity(0.35)
+                                .ignoresSafeArea()
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                                        resetGame()
                                     }
                                 }
-                            }
-                            .frame(maxWidth: 300, alignment: .leading)
-                            Divider()
-                            Text("Overall Time: \(formatTime(overallElapsed))")
-                                .font(.title3)
-                                .bold()
-                                .foregroundStyle(titleColor)
-                            Divider()
-                            Text("Your Drawings")
-                                .font(.headline)
-                                .foregroundStyle(titleColor)
-                            ScrollView(.horizontal) {
-                                HStack(spacing: 16) {
-                                    ForEach(completedDrawings) { item in
-                                        VStack(spacing: 6) {
-                                            Image(uiImage: item.image)
-                                                .resizable()
-                                                .scaledToFit()
-                                                .frame(width: 140, height: 140)
-                                                .colorMultiply(titleColor)
-                                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                            Text(item.word)
-                                                .font(.caption)
-                                                .bold()
-                                                .lineLimit(1)
-                                                .foregroundStyle(titleColor)
-                                            Text(formatTime(item.time))
-                                                .font(.caption2)
-                                                .foregroundStyle(titleColor)
+
+                            VStack(spacing: 16) {
+                                VStack(spacing: 8) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "sparkles")
+                                            .font(.title2)
+                                            .foregroundStyle(.yellow)
+                                        Text("Congratulations!")
+                                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                                    }
+
+                                    Text("You finished all the words for \(gameTopic).")
+                                        .font(.headline)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+
+                                HStack(spacing: 12) {
+                                    Label("\(generatedWords.count) words", systemImage: "checkmark.seal.fill")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+
+                                    Text("•")
+                                        .foregroundStyle(.secondary)
+
+                                    Label(formatTime(overallElapsed), systemImage: "timer")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                }
+
+                                Divider().opacity(0.65)
+
+                                ScrollView {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        ForEach(Array(generatedWords.enumerated()), id: \.offset) { index, word in
+                                            if index < completedTimes.count {
+                                                HStack(alignment: .firstTextBaseline) {
+                                                    Text("\(index + 1).")
+                                                        .foregroundStyle(.secondary)
+                                                        .frame(width: 28, alignment: .trailing)
+
+                                                    Text(word)
+                                                        .font(.body.weight(.semibold))
+                                                        .lineLimit(1)
+
+                                                    Spacer(minLength: 12)
+
+                                                    Text(formatTime(completedTimes[index]))
+                                                        .font(.body)
+                                                        .foregroundStyle(.secondary)
+                                                        .monospacedDigit()
+                                                }
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .background(.thinMaterial)
+                                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                            }
                                         }
-                                        .frame(width: 150)
                                     }
+                                    .padding(.top, 2)
+                                }
+                                .frame(maxHeight: 260)
+
+                                HStack(spacing: 12) {
+                                    Button("Play again") {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                                            resetGame()
+                                            showNewGamePopup = true
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+
+                                    Button("Close") {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                                            resetGame()
+                                        }
+                                    }
+                                    .buttonStyle(.borderedProminent)
                                 }
                             }
-                            Button("Close") {
-                                resetGame()
+                            .padding(22)
+                            .frame(maxWidth: 520)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                    .strokeBorder(.white.opacity(0.16), lineWidth: 1)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .shadow(color: .black.opacity(0.30), radius: 30, x: 0, y: 18)
+                            .padding()
                         }
-                        .padding(24)
-                        .background(.ultraThinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 24))
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     }
                 }
                 .onReceive(gameTimer) { _ in
@@ -686,8 +778,21 @@ struct FreeFormDrawingView: View {
                     }.padding(12)
                         .buttonStyle(.plain)
                         .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 32))
-                }
+                } // Trailing Ornament: End
+            
         }
+        .background {
+            LinearGradient(
+                colors: [
+                    Color(hue: bgHue > 1.0 ? 0.58 : bgHue, saturation: 0.30, brightness: 0.25),
+                    Color.black
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        }
+        
     }
     
     // MARK: - Game Logic
